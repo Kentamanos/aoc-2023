@@ -1,4 +1,22 @@
+use std::collections::HashMap;
+
+use once_cell::sync::Lazy;
 use regex::Regex;
+
+static LOOK_UP_TABLE: Lazy<HashMap<&str, u32>> = Lazy::new(|| {
+    let values = vec![
+        "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "1", "2", "3", "4",
+        "5", "6", "7", "8", "9",
+    ];
+
+    let m: HashMap<_, _> = values
+        .iter()
+        .enumerate()
+        .map(|(i, v)| (*v, i as u32 % 9 + 1))
+        .collect();
+
+    m
+});
 
 fn main() {
     let input = include_str!("../../input.txt");
@@ -8,6 +26,7 @@ fn main() {
 fn line_to_digits(line: &str) -> Vec<u32> {
     let mut line_copy = line.clone();
     let mut digits = Vec::new();
+    // TODO: Create a RegexSet from keys in LOOK_UP_TABLE?
     let re = Regex::new(r"[0-9]|zero|one|two|three|four|five|six|seven|eight|nine").unwrap();
 
     loop {
@@ -15,31 +34,7 @@ fn line_to_digits(line: &str) -> Vec<u32> {
         match foo {
             Some(m) => {
                 let num_match = &line_copy[m.start()..m.end()];
-                match num_match {
-                    "0" => digits.push(0),
-                    "1" => digits.push(1),
-                    "2" => digits.push(2),
-                    "3" => digits.push(3),
-                    "4" => digits.push(4),
-                    "5" => digits.push(5),
-                    "6" => digits.push(6),
-                    "7" => digits.push(7),
-                    "8" => digits.push(8),
-                    "9" => digits.push(9),
-                    "zero" => digits.push(0),
-                    "one" => digits.push(1),
-                    "two" => digits.push(2),
-                    "three" => digits.push(3),
-                    "four" => digits.push(4),
-                    "five" => digits.push(5),
-                    "six" => digits.push(6),
-                    "seven" => digits.push(7),
-                    "eight" => digits.push(8),
-                    "nine" => digits.push(9),
-                    _ => {
-                        panic!("unexpected match: {}", num_match)
-                    }
-                }
+                digits.push(*LOOK_UP_TABLE.get(num_match).unwrap());
                 line_copy = &line_copy[m.start() + 1..];
             }
             None => break,
