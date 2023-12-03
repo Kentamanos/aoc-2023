@@ -71,7 +71,6 @@ fn part2(input: &str) -> u32 {
                 }
             }
             if adjacent_numbers.len() == 2 {
-                println!("{} {}", adjacent_numbers[0], adjacent_numbers[1]);
                 total += adjacent_numbers[0] * adjacent_numbers[1];
             }
         }
