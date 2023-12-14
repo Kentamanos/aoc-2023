@@ -1,8 +1,7 @@
 use grid::*;
-use itertools::Itertools;
 use nom::{
     character::complete::{newline, one_of},
-    multi::{many1, many_m_n, separated_list1},
+    multi::{many1, separated_list1},
     IResult,
 };
 
@@ -57,7 +56,7 @@ fn tilt_north(grid: Grid<Symbol>) -> Grid<Symbol> {
     grid.iter_cols().for_each(|col_iter| {
         // Create an "empty" new column
         let mut new_col: Vec<Symbol> = Vec::new();
-        for i in 0..grid.rows() {
+        for _ in 0..grid.rows() {
             new_col.push(Symbol::Gap);
         }
 
