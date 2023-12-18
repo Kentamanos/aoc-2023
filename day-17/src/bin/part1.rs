@@ -1,6 +1,5 @@
-use itertools::Itertools;
 use pathfinding::prelude::dijkstra;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use nom::{
     character::complete::{newline, one_of},
@@ -12,6 +11,12 @@ use nom::{
 struct RowColumn {
     row: isize,
     column: isize,
+}
+
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+struct DirectionOffset {
+    row_offset: isize,
+    column_offset: isize,
 }
 
 fn main() {
@@ -58,60 +63,99 @@ fn part1(input: &str) -> u32 {
         row: row_count as isize - 1,
         column: col_count as isize - 1,
     };
-    let result: (Vec<(RowColumn, VecDeque<RowColumn>)>, u32) = dijkstra(
-        &(start, VecDeque::from([start])),
-        |(pos, deque)| {
-            [(0, 1), (0, -1), (1, 0), (-1, 0)]
-                .into_iter()
-                // Remove stuff not in the grid
-                .filter(|(row_offset, col_offset)| {
-                    grid.contains_key(&RowColumn {
-                        row: pos.row + row_offset,
-                        column: pos.column + col_offset,
-                    })
+    let result: (Vec<(RowColumn, DirectionOffset)>, u32) = dijkstra(
+        &(
+            start,
+            DirectionOffset {
+                row_offset: 0,
+                column_offset: 0,
+            },
+        ),
+        |(pos, direction_offset)| {
+            [
+                // NSEW
+                DirectionOffset {
+                    row_offset: -1,
+                    column_offset: 0,
+                },
+                DirectionOffset {
+                    row_offset: 1,
+                    column_offset: 0,
+                },
+                DirectionOffset {
+                    row_offset: 0,
+                    column_offset: 1,
+                },
+                DirectionOffset {
+                    row_offset: 0,
+                    column_offset: -1,
+                },
+            ]
+            .into_iter()
+            // Remove positions not in grid
+            .filter(|do_candidate| {
+                grid.contains_key(&RowColumn {
+                    row: pos.row + do_candidate.row_offset,
+                    column: pos.column + do_candidate.column_offset,
                 })
-                .filter_map(|(row_offset, col_offset)| {
-                    let next_pos = RowColumn {
-                        row: pos.row + row_offset,
-                        column: pos.column + col_offset,
-                    };
+            })
+            .filter_map(|do_candidate| {
+                let next_pos = RowColumn {
+                    row: pos.row + do_candidate.row_offset,
+                    column: pos.column + do_candidate.column_offset,
+                };
 
-                    // Don't backtrack to avoid going straight 3 times...
-                    if deque.len() > 2 && deque[deque.len() - 2] == next_pos {
-                        return None;
-                    }
+                let col_candidate_polarity = do_candidate.column_offset.signum();
+                let row_candidate_polarity = do_candidate.row_offset.signum();
+                let col_polarity = direction_offset.column_offset.signum();
+                let row_polarity = direction_offset.row_offset.signum();
 
-                    let mut new_deque = deque.clone();
-                    new_deque.push_back(next_pos);
-                    if new_deque.len() == 5 {
-                        // Four moves, let's make sure this one isn't the same direction as the last 3 moves (last 4 directions)
-                        if new_deque
-                            .iter()
-                            .tuple_windows()
-                            .map(|(a, b)| {
-                                let row_diff = a.row - b.row;
-                                let col_diff = a.column - b.column;
-                                (row_diff, col_diff)
-                            })
-                            .all_equal()
-                        {
+                let col_polarity_changed = col_candidate_polarity != col_polarity;
+                let row_polarity_changed = row_candidate_polarity != row_polarity;
+
+                match (row_polarity_changed, col_polarity_changed) {
+                    (true, false) => {
+                        // Make sure we're not back tracking... (only legal case should be just starting)
+                        if row_polarity == -row_candidate_polarity {
                             None
                         } else {
-                            // Take off the first one to save space
-                            new_deque.pop_front();
-                            Some((next_pos, new_deque))
+                            Some((next_pos, do_candidate))
                         }
-                    } else {
-                        Some((next_pos, new_deque))
                     }
-                })
-                .map(|(pos, dequeue)| {
-                    let cost = grid.get(&pos).unwrap();
-                    ((pos, dequeue), *cost as u32)
-                })
-                .collect::<Vec<((RowColumn, VecDeque<RowColumn>), u32)>>()
+                    (false, true) => {
+                        // Make sure we're not back tracking... (only legal case should be just starting)
+                        if col_polarity == -col_candidate_polarity {
+                            None
+                        } else {
+                            Some((next_pos, do_candidate))
+                        }
+                    }
+                    (false, false) => {
+                        // Heading in same direction, make sure we're not going over 3 moves
+                        let new_do = DirectionOffset {
+                            row_offset: direction_offset.row_offset + do_candidate.row_offset,
+                            column_offset: direction_offset.column_offset
+                                + do_candidate.column_offset,
+                        };
+                        if new_do.row_offset.abs() > 3 || new_do.column_offset.abs() > 3 {
+                            None
+                        } else {
+                            Some((next_pos, new_do))
+                        }
+                    }
+                    (true, true) => {
+                        // Went from moving North/South to East/West or vice versa, just put in new direction
+                        Some((next_pos, do_candidate))
+                    }
+                }
+            })
+            .map(|(pos, direction_offset)| {
+                let cost = grid.get(&pos).unwrap();
+                ((pos, direction_offset), *cost as u32)
+            })
+            .collect::<Vec<((RowColumn, DirectionOffset), u32)>>()
         },
-        |(pos, _deque)| *pos == goal,
+        |(pos, _direction_offset)| *pos == goal,
     )
     .unwrap();
 
